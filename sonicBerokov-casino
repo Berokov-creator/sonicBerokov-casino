@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gram Arcade</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg: #0f0f13;
+            --card: #1c1c24;
+            --text: #ffffff;
+            --accent: #ff0055;
+            --accent-hover: #cc0044;
+            --gold: #ffcc00;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Шапка */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(28, 28, 36, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 10;
+        }
+        .balance {
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--gold);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Главный экран */
+        .screen {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        /* Соник */
+        .sonic-container {
+            text-align: center;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+        .sonic-container img {
+            width: 200px;
+            filter: drop-shadow(0 0 20px rgba(0, 153, 255, 0.5));
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        /* Сетка игр */
+        .games-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .game-card {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+        .game-card:active {
+            transform: scale(0.95);
+        }
+        .game-card h3 {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+        }
+        .game-icon {
+            font-size: 40px;
+        }
+        .game-card:hover {
+            box-shadow: 0 10px 20px rgba(255, 0, 85, 0.2);
+        }
+
+        /* Экран Краша */
+        .crash-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .crash-multiplier {
+            font-size: 80px;
+            font-weight: 900;
+            color: var(--accent);
+            text-shadow: 0 0 30px rgba(255, 0, 85, 0.6);
+            margin-bottom: 20px;
+            transition: color 0.3s;
+        }
+        .crash-multiplier.crashed {
+            color: #ff3333;
+            text-shadow: 0 0 50px rgba(255, 0, 0, 0.8);
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* Кнопки */
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            width: 100%;
+            max-width: 300px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-bottom: 10px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn.cashout { background: #00cc66; }
+        .btn.cashout:active { background: #00994d; }
+        .btn.back { background: rgba(255,255,255,0.1); font-size: 14px; padding: 10px; max-width: 150px; }
+        
+        .bet-input {
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            font-size: 20px;
+            text-align: center;
+            width: 200px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="balance">💰 <span id="balanceDisplay">0</span></div>
+        <div class="user-info">
+            <span id="userName">Игрок</span>
+        </div>
+    </div>
+
+    <!-- ГЛАВНЫЙ ЭКРАН -->
+    <div class="screen active" id="mainScreen">
+        <div class="sonic-container">
+            <!-- ЗАМЕНИ ССЫЛКУ НИЖЕ НА СВОЮ КАРТИНКУ СОНИКА -->
+            <img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/92/Sonic_Adventure_DX_cover.png/220px-Sonic_Adventure_DX_cover.png" alt="Sonic" id="sonicImg">
+        </div>
+        
+        <div class="games-grid">
+            <div class="game-card" onclick="openGame('crash')">
+                <div class="game-icon">🚀</div>
+                <h3>Краш</h3>
+            </div>
+            <div class="game-card" onclick="showToast('В разработке!')">
+                <div class="game-icon">🎰</div>
+                <h3>Слоты</h3>
+            </div>
+            <div class="game-card" onclick="showToast('В разработке!')">
+                <div class="game-icon">🎯</div>
+                <h3>Дартс</h3>
+            </div>
+            <div class="game-card" onclick="showToast('В разработке!')">
+                <div class="game-icon">🪙</div>
+                <h3>Монетка</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН КРАША -->
+    <div class="screen" id="crashScreen">
+        <div class="crash-screen">
+            <div class="crash-multiplier" id="multiplierDisplay">x1.00</div>
+            
+            <div id="betSetup">
+                <input type="number" class="bet-input" id="betInput" placeholder="Ставка (мин. 100)">
+                <button class="btn" onclick="startCrash()">Играть</button>
+            </div>
+
+            <div id="crashActive" style="display: none;">
+                <button class="btn cashout" id="cashoutBtn" onclick="cashout()">💰 ЗАБРАТЬ</button>
+            </div>
+
+            <button class="btn back" onclick="closeGame()">В меню</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        // Данные пользователя
+        const user = tg.initDataUnsafe?.user || { first_name: "Гость", id: 0 };
+        document.getElementById('userName').innerText = user.first_name;
+
+        // Баланс (заглушка, синхронизируем через бота)
+        let balance = 1000; 
+        document.getElementById('balanceDisplay').innerText = balance;
+
+        // Логика Краша
+        let crashInterval = null;
+        let currentMult = 1.00;
+        let currentBet = 0;
+        let crashPoint = 1.00;
+        let isPlaying = false;
+
+        function openGame(gameName) {
+            if (gameName === 'crash') {
+                document.getElementById('mainScreen').classList.remove('active');
+                document.getElementById('crashScreen').classList.add('active');
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+
+        function closeGame() {
+            document.getElementById('crashScreen').classList.remove('active');
+            document.getElementById('mainScreen').classList.add('active');
+            resetCrash();
+        }
+
+        function startCrash() {
+            const bet = parseInt(document.getElementById('betInput').value);
+            if (!bet || bet < 100) {
+                tg.showAlert("Минимальная ставка 100 грамм");
+                return;
+            }
+            if (bet > balance) {
+                tg.showAlert("Недостаточно средств!");
+                return;
+            }
+
+            currentBet = bet;
+            balance -= bet;
+            document.getElementById('balanceDisplay').innerText = balance;
+            
+            // Отправляем в бота списание
+            tg.sendData(JSON.stringify({action: "crash_start", bet: bet}));
+
+            document.getElementById('betSetup').style.display = 'none';
+            document.getElementById('crashActive').style.display = 'block';
+            
+            currentMult = 1.00;
+            isPlaying = true;
+            crashPoint = (Math.random() * 6 + 1.2).toFixed(2); // Генерим точку краша от 1.2 до 7.2
+            
+            const multDisplay = document.getElementById('multiplierDisplay');
+            multDisplay.classList.remove('crashed');
+            multDisplay.innerText = "x1.00";
+
+            // Анимация роста
+            crashInterval = setInterval(() => {
+                if (!isPlaying) return;
+                
+                currentMult += 0.05; // Скорость роста
+                
+                if (currentMult >= crashPoint) {
+                    // КРАШ!
+                    clearInterval(crashInterval);
+                    isPlaying = false;
+                    multDisplay.classList.add('crashed');
+                    multDisplay.innerText = "КРАШ!";
+                    document.getElementById('crashActive').style.display = 'none';
+                    tg.HapticFeedback.notificationOccurred('error');
+                    
+                    // Сообщаем боту о проигрыше
+                    tg.sendData(JSON.stringify({action: "crash_lose", bet: currentBet}));
+                    
+                    setTimeout(() => {
+                        document.getElementById('betSetup').style.display = 'block';
+                    }, 2000);
+                } else {
+                    multDisplay.innerText = "x" + currentMult.toFixed(2);
+                    // Легкая вибрация при росте
+                    if (Math.random() > 0.8) tg.HapticFeedback.impactOccurred('soft');
+                }
+            }, 100); // 100мс = 0.1 секунды
+        }
+
+        function cashout() {
+            if (!isPlaying) return;
+            clearInterval(crashInterval);
+            isPlaying = false;
+            
+            const winAmount = Math.floor(currentBet * currentMult);
+            balance += winAmount;
+            document.getElementById('balanceDisplay').innerText = balance;
+            
+            tg.HapticFeedback.notificationOccurred('success');
+            tg.showAlert(`Вы забрали: ${winAmount} грамм (x${currentMult.toFixed(2)})`);
+            
+            // Отправляем в бота выигрыш
+            tg.sendData(JSON.stringify({
+                action: "crash_win", 
+                bet: currentBet, 
+                mult: currentMult.toFixed(2), 
+                win: winAmount
+            }));
+            
+            resetCrash();
+        }
+
+        function resetCrash() {
+            document.getElementById('betSetup').style.display = 'block';
+            document.getElementById('crashActive').style.display = 'none';
+            document.getElementById('multiplierDisplay').classList.remove('crashed');
+            document.getElementById('multiplierDisplay').innerText = "x1.00";
+            isPlaying = false;
+        }
+
+        function showToast(text) {
+            tg.showAlert(text);
+        }
+    </script>
+</body>
+</html>
